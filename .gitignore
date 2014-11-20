@@ -1,16 +1,3 @@
-# Ignore everything
-*
+# Ignore the weighted histogram scratch notebook
 
-# But not these files...
-
-# this file
-!.gitignore
-
-# the readme
-!README.md
-
-# the ijulia notebook
-!run_gillespie.ipynb
-
-# the module
-!gillespiemodule/gillespie.jl
+weighted_histogram.ipynb

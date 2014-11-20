@@ -1,5 +1,5 @@
-module gillespie
-export gillespie_even_spacing
+module gillespie_dumb
+export gillespie_even_spacing_dumb
 
 
 using Distributions
@@ -54,39 +54,42 @@ function cell_divide(species_list)
 end
 
 
-# ## provide some feedback on divergent growth/death of species in cell
-# function cell_regulate(spec_list,init_list,reg_factor)
-#     thresh_factor = float(reg_factor)
-#     heal_factor = float(1/reg_factor)
-#     for j = 1:length(spec_list) # don't skip length variable
-#         if spec_list[j] < init_list[j]/thresh_factor
-#             spec_list[j] = iround(spec_list[j]*(1+heal_factor)) + 1
-#         end
-#         if spec_list[j] > init_list[j]*thresh_factor
-#             spec_list[j] = iround(spec_list[j]/(1+heal_factor))
-#         end
-#     end
-#     for j = 1:length(spec_list) # check if length variable is zero
-#         if spec_list[j] < 1
-#             spec_list[j] = 1
-#         end
-#     end
-#     return spec_list
-# end
-
-## feedback on growth/death as a modification of the growth rate
-function cell_regulate_feedback(spec_list,init_list,reg_factor,thresh_factor,reaction_rates,orignial_rates)
+## provide some feedback on divergent growth/death of species in cell
+function cell_regulate(spec_list,init_list,reg_factor)
+    thresh_factor = float(reg_factor)
+    heal_factor = float(1/reg_factor)
     for j = 1:length(spec_list) # don't skip length variable
-        if (spec_list[j] > init_list[j]/thresh_factor) & (spec_list[j] < init_list[j]*thresh_factor)
-            reaction_rates[j] = orignial_rates[j]
-        elseif spec_list[j] <= init_list[j]/thresh_factor
-            reaction_rates[j] = reaction_rates[j]*(1.0 + reg_factor)
-        elseif spec_list[j] >= init_list[j]*thresh_factor
-            reaction_rates[j] = reaction_rates[j]*(1.0 - reg_factor)
+        if spec_list[j] < init_list[j]/thresh_factor
+            spec_list[j] = iround(spec_list[j]*(1+heal_factor)) + 1
+        end
+        if spec_list[j] > init_list[j]*thresh_factor
+            spec_list[j] = iround(spec_list[j]/(1+heal_factor))
         end
     end
-    return reaction_rates
+    return spec_list
 end
+
+# function cell_regulate_feedback(spec_list,init_list,reg_factor,thresh_factor,reaction_rates,orignial_rates)
+#     for j = 1:length(spec_list) # don't skip length variable
+#         if (spec_list[j] > init_list[j]/thresh_factor) & (spec_list[j] < init_list[j]*thresh_factor)
+#             reaction_rates[j] = orignial_rates[j]
+#         elseif spec_list[j] <= init_list[j]/thresh_factor
+#             reaction_rates[j] = reaction_rates[j]*(1.0 + reg_factor)
+#         elseif spec_list[j] >= init_list[j]*thresh_factor
+#             reaction_rates[j] = reaction_rates[j]*(1.0 - reg_factor)
+#         end
+#     end
+#     return reaction_rates
+# end## feedback on growth/death as a modification of the growth rate
+
+
+function noisey_weights(reaction_rates, noisefactor)
+    for j = 1:length(reaction_rates) # don't skip length variable
+        reaction_rates[j] = rand(empirical_lognormal(reaction_rates[j],noisefactor*reaction_rates[j]))
+        return reaction_rates
+    end
+end
+
 
 ## if a species drops to zero, set it to one
 function cell_resuscitate(spec_list)
@@ -101,7 +104,7 @@ end
 
 ## do n steps of gillespie_one_step, updating and recording
 
-function gillespie_even_spacing(num_steps, delta_t, initial_state, stoich_Mat, react_props, reaction_rates, mean_divsize, sigma_divsize, regfac, thresh_factor)
+function gillespie_even_spacing_dumb(num_steps, delta_t, initial_state, stoich_Mat, react_props, reaction_rates, mean_divsize, sigma_divsize, regfac, ratenoisefactor)
     orignial_rates = copy(reaction_rates)
     z_list = zeros(num_steps,length(initial_state))
     t_list = zeros(num_steps,1)
@@ -115,8 +118,9 @@ function gillespie_even_spacing(num_steps, delta_t, initial_state, stoich_Mat, r
         z = gillespie_ssa_onestep(delta_t,z,stoich_Mat,react_props,reaction_rates)
         if z[1] > divsize
             z = cell_divide(z)
-            #z = cell_regulate(z, initial_state, regfac)
-            reaction_rates = cell_regulate_feedback(z,initial_state,regfac,thresh_factor,reaction_rates,orignial_rates)
+            z = cell_regulate(z, initial_state, regfac)
+            #reaction_rates = cell_regulate_feedback(z,initial_state,regfac,thresh_factor,reaction_rates,orignial_rates)
+            reaction_rates = noisey_weights(orignial_rates, ratenoisefactor)
             z = cell_resuscitate(z)
             divsize = rand(empirical_lognormal(mean_divsize,sigma_divsize))
         end
