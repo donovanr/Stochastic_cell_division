@@ -1,3 +1,4 @@
 # Ignore the weighted histogram scratch notebook
 
 weighted_histogram.ipynb
+.ipynb_checkpoints/
